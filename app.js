@@ -179,63 +179,97 @@ function selectRandomQuestion() {
 // 2. VOICE ENGINE (TTS & STT - OFFLINE)
 // ==========================================
 function initVoice() {
-  if ('speechSynthesis' in window) {
-    const loadVoices = () => {
-      state.voice.voices = window.speechSynthesis.getVoices();
-      DOM.ttsVoiceSelect.innerHTML = '';
+  // Keep browser speechSynthesis as the engine. We only prefer en-US voices;
+  // if the device does not provide one, fall back to any English voice so
+  // the Listen button never becomes unusable.
+  state.voice.synth = window.speechSynthesis || null;
 
-      // Prefer REAL US-English browser voices only.
-      // We deliberately exclude en-GB/en-AU/etc. so OPIC practice uses an American accent.
-      const usVoices = state.voice.voices.filter(v => /^en-US$/i.test(v.lang));
+  const loadVoices = () => {
+    if (!state.voice.synth || !DOM.ttsVoiceSelect) return;
 
-      // Rank common American voices when the browser exposes them.
-      const preferred = [
-        'Microsoft Aria', 'Microsoft Jenny', 'Microsoft Guy',
-        'Microsoft David', 'Microsoft Zira', 'Samantha', 'Alex',
-        'Ava', 'Allison', 'Karen', 'Daniel'
-      ];
-      usVoices.sort((a, b) => {
-        const ai = preferred.findIndex(n => a.name.toLowerCase().includes(n.toLowerCase()));
-        const bi = preferred.findIndex(n => b.name.toLowerCase().includes(n.toLowerCase()));
-        return (ai < 0 ? 999 : ai) - (bi < 0 ? 999 : bi);
-      });
+    const allVoices = state.voice.synth.getVoices() || [];
+    const usVoices = allVoices.filter(v => /^en-US$/i.test(v.lang));
+    const englishVoices = allVoices.filter(v => /^en(-|_)/i.test(v.lang));
 
-      if (usVoices.length === 0) {
-        DOM.ttsVoiceSelect.innerHTML = '<option value="0">American English (browser default)</option>';
-      } else {
-        usVoices.forEach((v, i) => {
-          const opt = document.createElement('option');
-          opt.value = i;
-          opt.textContent = `${v.name} (English - United States)`;
-          DOM.ttsVoiceSelect.appendChild(opt);
-        });
-      }
-    };
+    // Prefer American English, but never block TTS if en-US is unavailable.
+    let voices = usVoices.length ? usVoices : englishVoices;
 
-    loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
+    const preferredNames = [
+      'Microsoft Aria', 'Microsoft Jenny', 'Microsoft Guy',
+      'Microsoft David', 'Microsoft Zira', 'Samantha', 'Ava',
+      'Allison', 'Karen', 'Alex'
+    ];
+
+    voices = [...voices].sort((a, b) => {
+      const ai = preferredNames.findIndex(n => a.name.toLowerCase().includes(n.toLowerCase()));
+      const bi = preferredNames.findIndex(n => b.name.toLowerCase().includes(n.toLowerCase()));
+      const ap = ai === -1 ? 999 : ai;
+      const bp = bi === -1 ? 999 : bi;
+      if (ap !== bp) return ap - bp;
+      if (a.default !== b.default) return a.default ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    state.voice.voices = voices;
+    DOM.ttsVoiceSelect.innerHTML = '';
+
+    if (!voices.length) {
+      const opt = document.createElement('option');
+      opt.value = '-1';
+      opt.textContent = 'Giọng mặc định của thiết bị';
+      DOM.ttsVoiceSelect.appendChild(opt);
+      if (DOM.ttsStatus) DOM.ttsStatus.textContent = 'Sẵn sàng đọc bằng giọng thiết bị';
+      return;
     }
+
+    voices.forEach((voice, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `${voice.name} (${voice.lang})`;
+      DOM.ttsVoiceSelect.appendChild(opt);
+    });
+
+    // First voice is already the preferred voice after sorting.
+    DOM.ttsVoiceSelect.value = '0';
+    state.voice.selectedVoice = voices[0];
+    if (DOM.ttsStatus) {
+      DOM.ttsStatus.textContent = usVoices.length
+        ? 'American English (en-US)'
+        : 'English voice của thiết bị';
+    }
+  };
+
+  loadVoices();
+  if (state.voice.synth && 'onvoiceschanged' in state.voice.synth) {
+    state.voice.synth.addEventListener('voiceschanged', loadVoices);
   }
 
-  DOM.ttsRateSlider.addEventListener('input', (e) => {
-    state.voice.rate = parseFloat(e.target.value);
-    DOM.ttsRateValue.textContent = `${state.voice.rate.toFixed(1)}x`;
-  });
+  if (DOM.ttsRateSlider) {
+    DOM.ttsRateSlider.addEventListener('input', (e) => {
+      state.voice.rate = parseFloat(e.target.value) || 1.0;
+      DOM.ttsRateValue.textContent = `${state.voice.rate.toFixed(1)}x`;
+    });
+  }
 
   DOM.btnTtsPlay.addEventListener('click', () => {
+    if (!state.voice.synth) {
+      DOM.ttsStatus.textContent = 'Thiết bị/trình duyệt không hỗ trợ đọc';
+      return;
+    }
+
     if (state.voice.synth.speaking && state.voice.synth.paused) {
       state.voice.synth.resume();
       DOM.btnTtsPlayText.textContent = 'Đang phát âm...';
       return;
     }
+
     if (state.currentQuestion) {
       speak(state.currentQuestion.question);
     }
   });
 
   DOM.btnTtsPause.addEventListener('click', () => {
-    if (state.voice.synth.speaking) {
+    if (state.voice.synth && state.voice.synth.speaking) {
       state.voice.synth.pause();
       DOM.btnTtsPlayText.textContent = 'Tiếp tục nghe';
     }
@@ -254,7 +288,7 @@ function initVoice() {
     if (text) speak(text);
   });
 
-  // Offline STT Recognition
+  // Speech-to-text remains en-US.
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRec) {
     state.voice.recognition = new SpeechRec();
@@ -306,43 +340,75 @@ function initVoice() {
 }
 
 function speak(text) {
-  stopSpeech();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = state.voice.rate;
+  if (!text || !String(text).trim()) return;
 
-  // Use only US English voices for American pronunciation.
-  const usVoices = state.voice.voices.filter(v => /^en-US$/i.test(v.lang));
-  const idx = Number(DOM.ttsVoiceSelect.value);
-  if (usVoices[idx]) {
-    utterance.voice = usVoices[idx];
-    utterance.lang = 'en-US';
-  } else {
-    // If the device has no en-US voice, still request US English.
-    utterance.lang = 'en-US';
+  if (!state.voice.synth) {
+    if (DOM.ttsStatus) DOM.ttsStatus.textContent = 'Trình duyệt không hỗ trợ đọc';
+    return;
+  }
+
+  stopSpeech();
+
+  const utterance = new SpeechSynthesisUtterance(String(text));
+  utterance.rate = state.voice.rate || 1.0;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  utterance.lang = 'en-US';
+
+  const idx = parseInt(DOM.ttsVoiceSelect.value, 10);
+  const selected = Number.isInteger(idx) ? state.voice.voices[idx] : null;
+
+  // Use the selected voice. If none is available, the browser will use its
+  // default voice while still being asked to pronounce as American English.
+  if (selected) {
+    utterance.voice = selected;
+    utterance.lang = selected.lang || 'en-US';
   }
 
   utterance.onstart = () => {
     DOM.btnTtsPlayText.textContent = 'Đang phát âm...';
-    DOM.ttsStatus.textContent = '🔊 Đang đọc...';
+    DOM.ttsStatus.textContent = selected
+      ? `🔊 ${selected.name} (${selected.lang})`
+      : '🔊 Đang đọc bằng giọng thiết bị...';
   };
 
   utterance.onend = () => {
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = 'American English (en-US)';
+    DOM.ttsStatus.textContent = state.voice.voices.some(v => /^en-US$/i.test(v.lang))
+      ? 'American English (en-US)'
+      : 'English voice của thiết bị';
   };
 
-  utterance.onerror = () => {
+  utterance.onerror = (event) => {
+    console.warn('Speech synthesis error:', event);
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = 'American English (en-US)';
+    DOM.ttsStatus.textContent = 'Không phát được giọng đọc — hãy bấm Nghe lại';
   };
 
-  state.voice.synth.speak(utterance);
+  try {
+    state.voice.synth.speak(utterance);
+  } catch (err) {
+    console.warn('Speech synthesis start error:', err);
+    DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
+    DOM.ttsStatus.textContent = 'Không phát được giọng đọc';
+  }
 }
 
 function stopSpeech() {
-  state.voice.synth.cancel();
-  DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-  DOM.ttsStatus.textContent = 'American English (en-US)';
+  if (state.voice.synth) {
+    try {
+      state.voice.synth.cancel();
+    } catch (err) {
+      console.warn('Speech synthesis stop error:', err);
+    }
+  }
+
+  if (DOM.btnTtsPlayText) DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
+  if (DOM.ttsStatus) {
+    DOM.ttsStatus.textContent = state.voice.voices.some(v => /^en-US$/i.test(v.lang))
+      ? 'American English (en-US)'
+      : 'English voice của thiết bị';
+  }
 }
 
 function appendAnswerText(phrase) {
