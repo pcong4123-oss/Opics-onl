@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="/Opics/manifest.webmanifest">
+  <link rel="icon" href="/Opics/icons/icon-192.png">
   <title>OPIC Master - Luyện Thi OPIC Online - Luyện Thi Tiếng Anh Chuẩn OPIC</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -321,7 +321,7 @@
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', async () => {
         try {
-          const registration = await navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' });
+          const registration = await navigator.serviceWorker.register('/Opics/sw.js', { scope: '/Opics/', updateViaCache: 'none' });
           await registration.update();
 
           // Check for a new version whenever the app returns to the foreground.

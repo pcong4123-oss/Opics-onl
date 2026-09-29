@@ -1,16 +1,16 @@
-const CACHE_NAME = 'opic-master-auto-v4';
+const CACHE_NAME = 'opic-master-runtime-v5';
+const BASE = '/Opics/';
 const APP_SHELL = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './opic_questions_data.js',
-  './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png'
+  BASE,
+  BASE + 'index.html',
+  BASE + 'styles.css',
+  BASE + 'app.js',
+  BASE + 'opic_questions_data.js',
+  BASE + 'manifest.webmanifest',
+  BASE + 'icons/icon-192.png',
+  BASE + 'icons/icon-512.png'
 ];
 
-// New SW versions activate immediately, then take control of all open pages.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -23,19 +23,18 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
   );
 });
 
-// Always prefer the newest online file. Cache is only a fallback for offline use.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
-
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return;
 
+  // Online: always request the newest file. Offline: use the last cached copy.
   event.respondWith(
     fetch(event.request, { cache: 'no-store' })
       .then(response => {
@@ -45,14 +44,12 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return caches.match('./index.html');
-      }))
+      .catch(() => caches.match(event.request).then(cached =>
+        cached || caches.match(BASE + 'index.html')
+      ))
   );
 });
 
-// Allows the page to ask the SW to check/install an update immediately.
 self.addEventListener('message', event => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
