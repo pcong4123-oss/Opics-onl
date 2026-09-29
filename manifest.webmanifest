@@ -6,14 +6,26 @@
   "start_url": "/Opics/",
   "scope": "/Opics/",
   "display": "standalone",
-  "display_override": ["standalone"],
+  "display_override": [
+    "standalone"
+  ],
   "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#2563eb",
   "lang": "vi",
   "prefer_related_applications": false,
   "icons": [
-    {"src":"/Opics/icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"/Opics/icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
