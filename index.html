@@ -23,6 +23,7 @@
   <header class="top-nav">
     <div class="nav-container">
       <div class="brand">
+        <button id="btnInstallApp" class="btn-subtle" style="display:none; margin-right:8px;" title="Cài OPIC Master lên điện thoại">📱 Cài app</button>
         <div class="brand-icon">
           <!-- Mic SVG -->
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -320,5 +321,27 @@
       window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
     }
   </script>
+
+<script>
+(function(){
+  let deferredPrompt = null;
+  const btn = document.getElementById('btnInstallApp');
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    if(btn) btn.style.display = 'inline-flex';
+  });
+  if(btn) btn.addEventListener('click', async function(){
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    btn.style.display = 'none';
+  });
+  window.addEventListener('appinstalled', function(){
+    if(btn) btn.style.display = 'none';
+  });
+})();
+</script>
 </body>
 </html>
