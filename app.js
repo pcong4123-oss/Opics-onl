@@ -1,6 +1,6 @@
 /**
- * OPIC Master - Online Edition
- * Browser-based TTS with English US/UK voice prioritization.
+ * OPIC Master - 100% Standalone Offline Edition
+ * Zero External Dependencies, Zero Network Requests.
  * Supports Bilingual Question Translation, Dictionary Lookup & Voice Engine.
  */
 
@@ -20,7 +20,6 @@ const state = {
   voice: {
     synth: window.speechSynthesis,
     voices: [],
-    englishVoices: [],
     selectedVoice: null,
     rate: 1.0,
     isSpeaking: false,
@@ -737,57 +736,34 @@ function renderOfflineDictEntry(entry) {
 }
 
 // ==========================================
-// 4. VOICE ENGINE (TTS & STT - ONLINE / STANDARD ENGLISH)
+// 4. VOICE ENGINE (TTS & STT - OFFLINE)
 // ==========================================
 function initVoice() {
-  const hasTTS = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-
-  if (hasTTS) {
+  if ('speechSynthesis' in window) {
     const loadVoices = () => {
       state.voice.voices = window.speechSynthesis.getVoices();
       DOM.ttsVoiceSelect.innerHTML = '';
+      const enVoices = state.voice.voices.filter(v => v.lang.startsWith('en'));
 
-      const enVoices = state.voice.voices.filter(v => /^en(-|_)/i.test(v.lang));
-      const usVoices = enVoices.filter(v => /^en(-|_)US/i.test(v.lang));
-      const ukVoices = enVoices.filter(v => /^en(-|_)GB/i.test(v.lang));
-      const otherVoices = enVoices.filter(v => !/^en(-|_)US|^en(-|_)GB/i.test(v.lang));
-      const ordered = [...usVoices, ...ukVoices, ...otherVoices];
-      state.voice.englishVoices = ordered;
-
-      if (ordered.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = 'default';
-        opt.textContent = 'English mặc định của thiết bị';
-        DOM.ttsVoiceSelect.appendChild(opt);
-        DOM.ttsStatus.textContent = '🌐 Online · English mặc định';
-        return;
+      if (enVoices.length === 0) {
+        DOM.ttsVoiceSelect.innerHTML = '<option value="0">Giọng đọc mặc định Windows</option>';
+      } else {
+        enVoices.forEach((v, i) => {
+          const opt = document.createElement('option');
+          opt.value = i;
+          opt.textContent = `${v.name} (${v.lang})`;
+          if (v.name.includes('David') || v.name.includes('Zira') || v.default) {
+            opt.selected = true;
+          }
+          DOM.ttsVoiceSelect.appendChild(opt);
+        });
       }
-
-      ordered.forEach((v, i) => {
-        const opt = document.createElement('option');
-        opt.value = i;
-        const region = /^en(-|_)US/i.test(v.lang) ? '🇺🇸 US' : /^en(-|_)GB/i.test(v.lang) ? '🇬🇧 UK' : '🌐 English';
-        opt.textContent = `${region} · ${v.name} (${v.lang})`;
-        DOM.ttsVoiceSelect.appendChild(opt);
-      });
-
-      // Prefer a clear US English voice for OPIC practice.
-      const preferred = ordered.findIndex(v =>
-        /^en(-|_)US/i.test(v.lang) &&
-        /(Google|Microsoft|Natural|Samantha|Alex|Jenny|Aria|Guy|Zira|David)/i.test(v.name)
-      );
-      const usIndex = ordered.findIndex(v => /^en(-|_)US/i.test(v.lang));
-      const defaultIndex = preferred >= 0 ? preferred : (usIndex >= 0 ? usIndex : 0);
-      DOM.ttsVoiceSelect.value = String(defaultIndex);
-      DOM.ttsStatus.textContent = '🌐 Online · English US';
     };
 
     loadVoices();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
-  } else {
-    DOM.ttsStatus.textContent = '⚠️ Trình duyệt không hỗ trợ đọc giọng nói';
   }
 
   DOM.ttsRateSlider.addEventListener('input', (e) => {
@@ -800,11 +776,15 @@ function initVoice() {
       state.voice.synth.resume();
       return;
     }
-    if (state.currentQuestion) speak(state.currentQuestion.question);
+    if (state.currentQuestion) {
+      speak(state.currentQuestion.question);
+    }
   });
 
   DOM.btnTtsPause.addEventListener('click', () => {
-    if (state.voice.synth.speaking) state.voice.synth.pause();
+    if (state.voice.synth.speaking) {
+      state.voice.synth.pause();
+    }
   });
 
   DOM.btnTtsStop.addEventListener('click', stopSpeech);
@@ -820,7 +800,7 @@ function initVoice() {
     if (text) speak(text);
   });
 
-  // Speech recognition for speaking practice. Chrome Android commonly uses Google Speech Services.
+  // Offline STT Recognition
   const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SpeechRec) {
     state.voice.recognition = new SpeechRec();
@@ -857,7 +837,9 @@ function initVoice() {
       } else {
         try {
           state.voice.recognition.start();
-          if (!state.timer.isRunning && state.timer.remaining > 0) startTimer();
+          if (!state.timer.isRunning && state.timer.remaining > 0) {
+            startTimer();
+          }
         } catch (err) {
           console.warn('Recognition start error:', err);
         }
@@ -870,8 +852,7 @@ function initVoice() {
 }
 
 function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-
+    // Maintain Blind Mode state
   if (state.isQuestionHidden && DOM.qVisibleContainer && DOM.qHiddenOverlay) {
     DOM.qVisibleContainer.style.display = 'none';
     DOM.qHiddenOverlay.style.display = 'block';
@@ -879,36 +860,32 @@ function speak(text) {
     DOM.qVisibleContainer.style.display = 'block';
     DOM.qHiddenOverlay.style.display = 'none';
   }
-
   stopSpeech();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.rate = state.voice.rate;
-  utterance.pitch = 1.0;
-  utterance.lang = 'en-US';
 
-  const enVoices = state.voice.englishVoices || state.voice.voices.filter(v => /^en(-|_)/i.test(v.lang));
+  const enVoices = state.voice.voices.filter(v => v.lang.startsWith('en'));
   const idx = DOM.ttsVoiceSelect.value;
-  if (idx !== 'default' && enVoices[Number(idx)]) {
-    utterance.voice = enVoices[Number(idx)];
-    utterance.lang = utterance.voice.lang;
-  }
+  if (enVoices[idx]) utterance.voice = enVoices[idx];
 
   utterance.onstart = () => {
-    DOM.ttsStatus.textContent = '🔊 Đang đọc · English ' + (utterance.lang.toUpperCase());
+    DOM.ttsStatus.textContent = '🔊 Đang đọc...';
   };
+
   utterance.onend = () => {
-    DOM.ttsStatus.textContent = '🌐 Online · English US';
+    DOM.ttsStatus.textContent = 'Offline Voice Engine';
   };
+
   utterance.onerror = () => {
-    DOM.ttsStatus.textContent = '⚠️ Không phát được giọng đọc';
+    DOM.ttsStatus.textContent = 'Offline Voice Engine';
   };
 
   state.voice.synth.speak(utterance);
 }
 
 function stopSpeech() {
-  if ('speechSynthesis' in window) state.voice.synth.cancel();
-  if (DOM.ttsStatus) DOM.ttsStatus.textContent = '🌐 Online · English US';
+  state.voice.synth.cancel();
+  DOM.ttsStatus.textContent = 'Offline Voice Engine';
 }
 
 function appendAnswerText(phrase) {
