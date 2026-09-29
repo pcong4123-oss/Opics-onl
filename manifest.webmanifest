@@ -1,10 +1,10 @@
 {
-  "id": "/Opics/",
+  "id": "/Opics-onl/",
   "name": "OPIC Master - Luyện Thi OPIC",
   "short_name": "OPIC Master",
   "description": "Ứng dụng luyện nói OPIC trên điện thoại, hỗ trợ English US/UK.",
-  "start_url": "/Opics/",
-  "scope": "/Opics/",
+  "start_url": "/Opics-onl/",
+  "scope": "/Opics-onl/",
   "display": "standalone",
   "display_override": [
     "standalone"
