@@ -182,13 +182,126 @@ body {
 }
 
 @media (max-width: 900px) {
+  .nav-container {
+    height: auto;
+    min-height: 64px;
+    padding: 10px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .brand {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .brand-title {
+    font-size: 16px;
+  }
+
+  .brand-sub {
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    max-width: none;
+    gap: 8px;
+  }
+
+  .nav-filters .select-control,
+  .nav-filters .input-control,
+  .nav-filters .btn-random,
+  .nav-filters .btn-dict-top {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nav-filters #searchInput {
+    width: 100%;
+  }
+
+  .nav-filters #filterTopic {
+    flex: none !important;
+  }
+
   .main-wrapper {
     grid-template-columns: 1fr;
+    margin: 14px auto;
+    padding: 0 10px;
+    gap: 14px;
   }
-  .nav-filters {
-    display: none;
+
+  .card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .q-header {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .q-text {
+    font-size: 17px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+
+  .q-label-row {
+    gap: 8px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  textarea,
+  .answer-textarea {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  button,
+  select,
+  input {
+    max-width: 100%;
   }
 }
+
+@media (max-width: 520px) {
+  .nav-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .brand-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+  }
+
+  .brand-title {
+    font-size: 15px;
+  }
+
+  .offline-pill {
+    font-size: 9px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .badge {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+}
+
 
 /* Cards */
 .card {
