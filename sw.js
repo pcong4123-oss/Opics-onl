@@ -1,5 +1,5 @@
-const CACHE_NAME = 'opic-master-runtime-v5';
-const BASE = '/Opics/';
+const CACHE_NAME = 'opic-master-opics-onl-v6';
+const BASE = '/Opics-onl/';
 const APP_SHELL = [
   BASE,
   BASE + 'index.html',
@@ -7,8 +7,8 @@ const APP_SHELL = [
   BASE + 'app.js',
   BASE + 'opic_questions_data.js',
   BASE + 'manifest.webmanifest',
-  BASE + 'icons/icon-192.png',
-  BASE + 'icons/icon-512.png'
+  BASE + 'icon-192.png',
+  BASE + 'icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -34,7 +34,6 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE)) return;
 
-  // Online: always request the newest file. Offline: use the last cached copy.
   event.respondWith(
     fetch(event.request, { cache: 'no-store' })
       .then(response => {
