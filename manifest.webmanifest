@@ -1,0 +1,16 @@
+{
+  "name": "OPIC Master - Luyện Thi OPIC",
+  "short_name": "OPIC Master",
+  "description": "Ứng dụng luyện nói OPIC online trên điện thoại, hỗ trợ phát âm English US/UK.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "lang": "vi",
+  "icons": [
+    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}

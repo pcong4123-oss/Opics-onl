@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <title>OPIC Master - Luyện Thi OPIC Online - Luyện Thi Tiếng Anh Chuẩn OPIC</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Floating Selection Lookup Tooltip -->
+  <div id="selectionLookupBtn" style="display: none;">
+    <span>🔍 Tra từ: "<strong id="selectionLookupWord"></strong>"</span>
+  </div>
+
+  <!-- Navigation Bar -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <!-- Mic SVG -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">
+            <span>OPIC Master</span>
+            <span class="offline-pill">ONLINE</span>
+          </div>
+          <div class="brand-sub">Luyện Nói Tiếng Anh Chuẩn ACTFL OPIC</div>
+        </div>
+      </div>
+
+      <!-- Filters & Actions -->
+      <div class="nav-filters">
+        <select id="filterLevel" class="select-control">
+          <option value="ALL">Tất cả cấp độ</option>
+          <option value="IL-IM">Mục tiêu: IL - IM</option>
+          <option value="IH-AL">Mục tiêu: IH - AL</option>
+        </select>
+
+        <select id="filterTopic" class="select-control" style="flex: 1;">
+          <option value="ALL">Tất cả chủ đề</option>
+        </select>
+
+        <input type="text" id="searchInput" placeholder="Tìm câu hỏi..." class="input-control">
+
+        <button id="btnRandom" class="btn-random" title="Chọn ngẫu nhiên câu hỏi">
+          <span>🎲 Random</span>
+        </button>
+
+        <button id="btnOpenDictionary" class="btn-dict-top" title="Tra cứu từ vựng">
+          <span>📖 Tra từ vựng</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workstation -->
+  <main class="main-wrapper">
+    
+    <!-- LEFT COLUMN: Question Card & TTS -->
+    <div class="card">
+      <div class="q-header">
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+          <span id="qLevelBadge" class="badge badge-ih">IH-AL</span>
+          <span id="qTopicBadge" class="badge badge-topic">Work</span>
+          <span id="qTypeBadge" class="badge badge-type">Combo-3</span>
+        </div>
+        <span id="qCounter" style="font-size: 12px; font-weight: 700; color: var(--text-muted);">#1 / 397</span>
+      </div>
+
+      <div class="q-label-row">
+        <div class="q-label">Đề bài câu hỏi (OPIC Prompt)</div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btnToggleHideQ" class="btn-translate-q" style="color: #64748b;" title="Ẩn/Hiện đề bài">
+            <span id="hideQBtnText">👁️ Ẩn đề bài</span>
+          </button>
+          <button id="btnToggleTranslateQ" class="btn-translate-q">
+            <span>🌐 Xem dịch tiếng Việt</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Question Visible Area -->
+      <div id="qVisibleContainer">
+        <div id="qText" class="q-text">Đang tải câu hỏi...</div>
+
+        <!-- Question Vietnamese Translation Box -->
+        <div id="qTranslationBox" class="translation-box" style="display: none;">
+          <strong style="font-size: 11px; text-transform: uppercase;">Nghĩa tiếng Việt:</strong>
+          <p id="qTranslationText" style="margin-top: 4px; white-space: pre-line;">Đang tải bản dịch...</p>
+        </div>
+      </div>
+
+      <!-- Blind Listening Overlay (Hidden by default) -->
+      <div id="qHiddenOverlay" style="display: none; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 18px; text-align: center; margin: 10px 0;">
+        <div style="font-size: 24px; margin-bottom: 6px;">🎧</div>
+        <h4 style="font-size: 13px; font-weight: 800; color: #1e1b4b; text-transform: uppercase;">Chế độ luyện nghe phản xạ (Blind Mode)</h4>
+        <p style="font-size: 11px; color: #64748b; margin: 6px 0 12px;">Đề bài đang được ẩn để bạn tập trung luyện nghe và phản xạ trả lời như khi thi OPIC thật.</p>
+        <div style="display: flex; justify-content: center; gap: 8px;">
+          <button id="btnListenBlind" class="btn-primary" style="flex: initial; padding: 6px 14px; font-size: 11px;">🔊 Nghe đề bài</button>
+          <button id="btnRevealQ" class="btn-subtle" style="font-size: 11px; padding: 6px 14px;">👁️ Hiện lại đề bài</button>
+        </div>
+      </div>
+
+      <!-- TTS Voice Engine -->
+      <div class="tts-box">
+        <div class="tts-header">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+            </svg>
+            <span>Phát âm chuẩn English (US/UK)</span>
+          </span>
+          <span id="ttsStatus" style="font-size: 11px; font-weight: 600; color: #64748b;">🌐 Online · English US</span>
+        </div>
+
+        <div class="tts-controls-row">
+          <div class="control-group">
+            <label>Giọng đọc chuẩn</label>
+            <select id="ttsVoiceSelect" class="select-control" style="width: 100%;">
+              <option value="default">English mặc định của thiết bị</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Tốc độ đọc: <span id="ttsRateValue">1.0x</span></label>
+            <input type="range" id="ttsRateSlider" min="0.7" max="1.4" step="0.1" value="1.0" style="width: 100%; margin-top: 6px;">
+          </div>
+        </div>
+
+        <div class="tts-btn-group">
+          <button id="btnTtsPlay" class="btn-primary">
+            <span>🔊 Nghe đề bài</span>
+          </button>
+          <button id="btnTtsPause" class="btn-icon" title="Tạm dừng">
+            <span>⏸</span>
+          </button>
+          <button id="btnTtsStop" class="btn-icon" title="Dừng">
+            <span>⏹</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="nav-bottom-row">
+        <button id="btnPrevQ" class="btn-subtle">
+          <span>&larr; Câu trước</span>
+        </button>
+        <button id="btnShuffleQ" class="btn-subtle" title="Đổi câu ngẫu nhiên">🎲 Đổi câu</button>
+        <button id="btnNextQ" class="btn-primary" style="flex: initial; padding: 8px 16px;">
+          <span>Câu tiếp &rarr;</span>
+        </button>
+      </div>
+
+      <!-- Sample Answer Accordion -->
+      <div style="margin-top: 16px; border-top: 1px solid #f1f5f9; padding-top: 10px;">
+        <button id="btnToggleSampleAnswer" class="accordion-toggle">
+          <span>💡 Xem bài mẫu tham khảo (Original Script)</span>
+          <span id="sampleToggleIcon">&darr;</span>
+        </button>
+        <div id="sampleAnswerContainer" class="sample-answer-box" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <strong style="font-size: 11px; text-transform: uppercase;">Bài Mẫu Giáo Trình:</strong>
+            <div style="display: flex; gap: 6px;">
+              <button id="btnToggleTranslateSample" class="btn-subtle" style="font-size: 11px; padding: 4px 8px; color: #059669;">
+                🌐 Dịch bài mẫu
+              </button>
+              <button id="btnListenSample" class="btn-subtle" style="font-size: 11px; padding: 4px 8px;">
+                🔊 Nghe bài mẫu
+              </button>
+            </div>
+          </div>
+          <div id="sampleAnswerText" style="white-space: pre-line;">Chưa có bài mẫu cho câu hỏi này.</div>
+          
+          <!-- Sample Answer Translation Box -->
+          <div id="sampleTranslationBox" class="translation-box" style="display: none; margin-top: 10px; background: #fff; border-color: #fcd34d;">
+            <strong style="font-size: 11px; text-transform: uppercase; color: #b45309;">Dịch nghĩa tiếng Việt:</strong>
+            <p id="sampleTranslationText" style="margin-top: 4px; white-space: pre-line; color: #78350f;">Đang dịch bài mẫu...</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: Timer & Dual-Mode Answer -->
+    <div class="card">
+      
+      <!-- Timer Bar -->
+      <div class="timer-header">
+        <div class="timer-box">
+          <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Thời gian nói:</span>
+          <div id="timerDisplay" class="timer-num">02:00</div>
+          <button id="btnTimerStart" class="btn-subtle" title="Bắt đầu/Tạm dừng">▶</button>
+          <button id="btnTimerReset" class="btn-subtle" title="Đặt lại 02:00">↺</button>
+          <select id="timerPresetSelect" class="select-control" style="padding: 4px 8px;">
+            <option value="90">1:30</option>
+            <option value="120" selected>2:00 (Chuẩn)</option>
+            <option value="180">3:00</option>
+          </select>
+        </div>
+        <div id="speechIndicator" style="font-size: 11px; font-weight: 600; color: #059669;">
+          ● Sẵn sàng
+        </div>
+      </div>
+
+      <!-- Answer Input -->
+      <div class="stats-row">
+        <span style="font-weight: 700; text-transform: uppercase; font-size: 11px;">Khung trả lời (Nói hoặc Gõ)</span>
+        <div>
+          <span>Từ: <strong id="wordCount" style="color: var(--primary);">0</strong></span> | 
+          <span>Ký tự: <strong id="charCount" style="color: var(--primary);">0</strong></span>
+        </div>
+      </div>
+
+      <textarea 
+        id="userAnswerInput" 
+        class="textarea-answer" 
+        placeholder="Bấm nút 'Bật Micro' để nói tiếng Anh hoặc gõ trực tiếp câu trả lời của bạn vào đây. Luyện nói liên tục trong 2 phút theo chuẩn bài thi OPIC..."
+      ></textarea>
+
+      <!-- Action Row -->
+      <div class="answer-action-row">
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button id="btnMicToggle" class="btn-mic">
+            <span id="micBtnText">🎙️ Bật Micro (Nói)</span>
+          </button>
+
+          <button id="btnListenAnswer" class="btn-subtle" title="Nghe lại bài làm">
+            🎧 Nghe lại bài làm
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button id="btnSavePractice" class="btn-primary" style="background: #059669; padding: 8px 14px;">
+            💾 Lưu bài luyện
+          </button>
+          <button id="btnExportTxt" class="btn-subtle" title="Xuất file TXT">
+            📄 Xuất file
+          </button>
+          <button id="btnClearAnswer" class="btn-subtle" title="Xóa nội dung">
+            🗑️ Xóa
+          </button>
+        </div>
+      </div>
+
+      <!-- Practice History / Saved Answers -->
+      <div class="history-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">
+            📝 Nhật ký bài đã luyện trên máy này (<span id="historyCount">0</span>)
+          </span>
+          <button id="btnClearHistory" class="btn-subtle" style="font-size: 11px; padding: 2px 8px;">Xóa lịch sử</button>
+        </div>
+        <div id="historyList">
+          <p style="font-size: 12px; color: #94a3b8; font-style: italic;">Chưa có bài luyện nào được lưu. Sau khi nói xong, nhấn "Lưu bài luyện" để xem lại tiến độ của bạn!</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: OFFLINE DICTIONARY LOOKUP -->
+  <div id="dictModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
+        <h3 style="font-size: 16px; font-weight: 800; color: #0f172a; display: flex; align-items: center; gap: 8px;">
+          <span>📖 Tra Cứu Từ Vựng (Dictionary)</span>
+        </h3>
+        <button id="btnCloseDict" class="btn-subtle" style="font-size: 14px; padding: 4px 10px;">✕</button>
+      </div>
+
+      <!-- Search in modal -->
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" id="dictInput" placeholder="Nhập từ tiếng Anh (ví dụ: company, schedule, routine)..." class="input-control" style="flex: 1;">
+        <button id="btnDoLookup" class="btn-primary" style="flex: initial; padding: 8px 16px;">Tra cứu</button>
+      </div>
+
+      <!-- Dict Result -->
+      <div id="dictModalResult" style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <div id="dictEmptyMsg" style="text-align: center; padding: 30px 10px; color: #94a3b8; font-size: 13px;">
+          Gõ từ cần tra ở trên hoặc bôi đen từ trên đề bài để tra cứu nhanh phát âm, từ loại và nghĩa tiếng Việt!
+        </div>
+
+        <div id="dictResultCard" style="display: none;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="display: flex; align-items: baseline; gap: 8px;">
+                <h4 id="dictWordName" style="font-size: 22px; font-weight: 800; color: #0f172a; text-transform: capitalize;">word</h4>
+                <span id="dictPhoneticIpa" style="font-family: monospace; font-size: 13px; font-weight: 700; color: #059669;">/wɜːd/</span>
+              </div>
+              <div id="dictVietnameseBrief" style="font-size: 13px; font-weight: 700; color: #334155; margin-top: 4px;">Nghĩa: từ, lời nói</div>
+            </div>
+            <button id="btnPlayWordAudio" class="btn-subtle" style="font-size: 16px; padding: 8px 12px;" title="Nghe phát âm">🔊</button>
+          </div>
+
+          <div id="dictDefinitionsList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data & Script (Offline Bundle) -->
+  <script src="opic_questions_data.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.warn));
+    }
+  </script>
+</body>
+</html>
