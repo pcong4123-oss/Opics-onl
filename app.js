@@ -182,99 +182,104 @@ function initVoice() {
   state.voice.synth = window.speechSynthesis || null;
 
   const savedVoiceKey = localStorage.getItem('opic_tts_voice_key') || '';
-  const voiceKey = (v) => [v.name || '', v.lang || '', v.voiceURI || ''].join('||');
-  const isUS = (v) => /^en-US$/i.test(v.lang || '');
-
-  const rankUSVoice = (v) => {
-    const name = (v.name || '').toLowerCase();
-    const preferred = [
-      'microsoft aria', 'microsoft jenny', 'microsoft guy',
-      'microsoft david', 'microsoft zira', 'samantha',
-      'ava', 'allison', 'karen', 'alex'
-    ];
-    const index = preferred.findIndex(n => name.includes(n));
-    return index === -1 ? 999 : index;
+  const voiceKey = v => [v.name || '', v.lang || '', v.voiceURI || ''].join('||');
+  const normalizeLang = lang => String(lang || '').replace(/_/g, '-').toLowerCase();
+  const isUS = v => {
+    const lang = normalizeLang(v && v.lang);
+    return lang === 'en-us' || lang.startsWith('en-us-');
   };
 
-  const setStatus = (message) => {
+  const rankUSVoice = v => {
+    const name = String(v.name || '').toLowerCase();
+    const uri = String(v.voiceURI || '').toLowerCase();
+    let score = 1000;
+    if (name.includes('samsung') || uri.includes('samsung')) score -= 300;
+    if (v.localService === true) score -= 200;
+    if (v.default === true) score -= 50;
+    return score;
+  };
+
+  const setStatus = message => {
     if (DOM.ttsStatus) DOM.ttsStatus.textContent = message;
   };
 
   const loadVoices = () => {
-    if (!state.voice.synth || !DOM.ttsVoiceSelect) return;
-
-    const allVoices = state.voice.synth.getVoices() || [];
-    const usVoices = allVoices.filter(isUS).sort((a, b) => {
-      const rank = rankUSVoice(a) - rankUSVoice(b);
-      if (rank !== 0) return rank;
-      if (a.default !== b.default) return a.default ? -1 : 1;
-      return (a.name || '').localeCompare(b.name || '');
+    if (!state.voice.synth || !DOM.ttsVoiceSelect) return [];
+    const all = state.voice.synth.getVoices() || [];
+    const us = all.filter(isUS).sort((a, b) => {
+      const score = rankUSVoice(a) - rankUSVoice(b);
+      return score || (a.name || '').localeCompare(b.name || '');
     });
 
-    state.voice.voices = usVoices;
+    state.voice.voices = us;
     DOM.ttsVoiceSelect.innerHTML = '';
 
-    if (!usVoices.length) {
+    if (!us.length) {
       state.voice.selectedVoice = null;
       const opt = document.createElement('option');
       opt.value = '-1';
-      opt.textContent = 'Chưa có giọng English (United States)';
+      opt.textContent = 'Đang tìm voice English (United States)...';
       DOM.ttsVoiceSelect.appendChild(opt);
-      setStatus('Đang chờ giọng English (United States)...');
-      return;
+      setStatus('Đang tìm giọng English (United States)...');
+      return us;
     }
 
-    let selectedIndex = usVoices.findIndex(v => voiceKey(v) === savedVoiceKey);
-    if (selectedIndex < 0 && state.voice.selectedVoice) {
-      selectedIndex = usVoices.findIndex(v => voiceKey(v) === voiceKey(state.voice.selectedVoice));
+    let index = us.findIndex(v => voiceKey(v) === savedVoiceKey);
+    if (index < 0 && state.voice.selectedVoice) {
+      index = us.findIndex(v => voiceKey(v) === voiceKey(state.voice.selectedVoice));
     }
-    if (selectedIndex < 0) selectedIndex = 0;
+    if (index < 0) index = 0;
 
-    usVoices.forEach((voice, i) => {
+    us.forEach((voice, i) => {
       const opt = document.createElement('option');
       opt.value = String(i);
-      opt.textContent = `${voice.name} (English - United States)`;
+      opt.textContent = `${voice.name || `English (US) Voice ${i + 1}`} (${voice.lang})`;
       DOM.ttsVoiceSelect.appendChild(opt);
     });
 
-    DOM.ttsVoiceSelect.value = String(selectedIndex);
-    state.voice.selectedVoice = usVoices[selectedIndex];
+    DOM.ttsVoiceSelect.value = String(index);
+    state.voice.selectedVoice = us[index];
     localStorage.setItem('opic_tts_voice_key', voiceKey(state.voice.selectedVoice));
-    setStatus(`American English • ${state.voice.selectedVoice.name}`);
+    setStatus(`American English • ${state.voice.selectedVoice.name || 'Samsung TTS'}`);
+    return us;
   };
 
-  const waitForUSVoice = (timeout = 3000) => new Promise(resolve => {
+  const waitForUSVoice = (timeout = 5000) => new Promise(resolve => {
     if (!state.voice.synth) return resolve(null);
 
     const find = () => {
       const voices = state.voice.synth.getVoices() || [];
       const us = voices.filter(isUS).sort((a, b) => rankUSVoice(a) - rankUSVoice(b));
-      if (us.length) {
-        loadVoices();
-        return us[0];
-      }
-      return null;
+      if (!us.length) return null;
+      loadVoices();
+      return state.voice.selectedVoice || us[0];
     };
 
     const immediate = find();
     if (immediate) return resolve(immediate);
 
     let done = false;
-    let timer;
+    let interval = null;
+    let timeoutId = null;
+    const finish = voice => {
+      if (done) return;
+      done = true;
+      if (interval) clearInterval(interval);
+      if (timeoutId) clearTimeout(timeoutId);
+      try { state.voice.synth.removeEventListener('voiceschanged', onChanged); } catch (e) {}
+      resolve(voice || null);
+    };
     const onChanged = () => {
       const voice = find();
       if (voice) finish(voice);
     };
-    const finish = (voice) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      state.voice.synth.removeEventListener('voiceschanged', onChanged);
-      resolve(voice || null);
-    };
 
-    timer = setTimeout(() => finish(null), timeout);
-    state.voice.synth.addEventListener('voiceschanged', onChanged);
+    try { state.voice.synth.addEventListener('voiceschanged', onChanged); } catch (e) {}
+    interval = setInterval(() => {
+      const voice = find();
+      if (voice) finish(voice);
+    }, 250);
+    timeoutId = setTimeout(() => finish(null), timeout);
   });
 
   loadVoices();
@@ -282,28 +287,34 @@ function initVoice() {
     state.voice.synth.addEventListener('voiceschanged', loadVoices);
   }
 
+  const refresh = () => {
+    loadVoices();
+    if (!state.voice.selectedVoice) waitForUSVoice(5000).catch(() => {});
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') refresh();
+  });
+  window.addEventListener('pageshow', refresh);
+
   DOM.ttsVoiceSelect.addEventListener('change', () => {
-    const idx = parseInt(DOM.ttsVoiceSelect.value, 10);
-    const voice = Number.isInteger(idx) ? state.voice.voices[idx] : null;
+    const index = parseInt(DOM.ttsVoiceSelect.value, 10);
+    const voice = Number.isInteger(index) ? state.voice.voices[index] : null;
     if (voice && isUS(voice)) {
       state.voice.selectedVoice = voice;
       localStorage.setItem('opic_tts_voice_key', voiceKey(voice));
-      setStatus(`American English • ${voice.name}`);
+      setStatus(`American English • ${voice.name || 'Samsung TTS'}`);
     }
   });
 
   if (DOM.ttsRateSlider) {
-    DOM.ttsRateSlider.addEventListener('input', (e) => {
+    DOM.ttsRateSlider.addEventListener('input', e => {
       state.voice.rate = parseFloat(e.target.value) || 1.0;
       DOM.ttsRateValue.textContent = `${state.voice.rate.toFixed(1)}x`;
     });
   }
 
   DOM.btnTtsPlay.addEventListener('click', async () => {
-    if (!state.voice.synth) {
-      setStatus('Thiết bị/trình duyệt không hỗ trợ đọc');
-      return;
-    }
+    if (!state.voice.synth) return setStatus('Thiết bị/trình duyệt không hỗ trợ đọc');
     if (state.voice.synth.speaking && state.voice.synth.paused) {
       state.voice.synth.resume();
       DOM.btnTtsPlayText.textContent = 'Đang phát âm...';
@@ -318,13 +329,11 @@ function initVoice() {
       DOM.btnTtsPlayText.textContent = 'Tiếp tục nghe';
     }
   });
-
   DOM.btnTtsStop.addEventListener('click', stopSpeech);
 
   DOM.btnListenSample.addEventListener('click', async () => {
     if (state.currentQuestion && state.currentQuestion.sampleAnswer) await speak(state.currentQuestion.sampleAnswer);
   });
-
   DOM.btnListenAnswer.addEventListener('click', async () => {
     const text = DOM.userAnswerInput.value.trim();
     if (text) await speak(text);
@@ -336,14 +345,13 @@ function initVoice() {
     state.voice.recognition.continuous = true;
     state.voice.recognition.interimResults = true;
     state.voice.recognition.lang = 'en-US';
-
     state.voice.recognition.onstart = () => {
       state.voice.isRecording = true;
       DOM.btnMicToggle.classList.add('recording');
       DOM.micBtnText.textContent = 'Dừng Micro';
       DOM.speechIndicator.innerHTML = '<span style="color: #dc2626;">● Đang thu âm...</span>';
     };
-    state.voice.recognition.onresult = (e) => {
+    state.voice.recognition.onresult = e => {
       for (let i = e.resultIndex; i < e.results.length; ++i) {
         if (e.results[i].isFinal) appendAnswerText(e.results[i][0].transcript.trim());
       }
@@ -368,30 +376,68 @@ function initVoice() {
     DOM.speechIndicator.textContent = 'Gõ bài làm trực tiếp';
   }
 
-  // Mobile Chrome/Android may populate voices only after page load.
-  waitForUSVoice(3500).catch(() => {});
+  waitForUSVoice(5000).catch(() => {});
+}
+
+function isAmericanEnglishVoice(voice) {
+  if (!voice) return false;
+  const lang = String(voice.lang || '').replace(/_/g, '-').toLowerCase();
+  return lang === 'en-us' || lang.startsWith('en-us-');
 }
 
 async function speak(text) {
   if (!text || !String(text).trim()) return;
   if (!state.voice.synth) {
-    DOM.ttsStatus.textContent = 'Trình duyệt không hỗ trợ đọc';
+    if (DOM.ttsStatus) DOM.ttsStatus.textContent = 'Trình duyệt không hỗ trợ đọc';
     return;
   }
 
   stopSpeech();
 
-  // Strict mode: never intentionally fall back to a non-US voice.
-  let selected = state.voice.selectedVoice;
-  if (!selected || !/^en-US$/i.test(selected.lang || '')) {
-    await new Promise(resolve => setTimeout(resolve, 50));
-    await waitForUSVoice(3000);
-    selected = state.voice.selectedVoice;
+  // Re-read the voice list immediately before playback. Chrome on Android
+  // can expose installed TTS voices after the first page load.
+  const voices = state.voice.synth.getVoices() || [];
+  const us = voices.filter(isAmericanEnglishVoice);
+  if (us.length) {
+    const currentKey = state.voice.selectedVoice
+      ? [state.voice.selectedVoice.name || '', state.voice.selectedVoice.lang || '', state.voice.selectedVoice.voiceURI || ''].join('||')
+      : '';
+    state.voice.selectedVoice = us.find(v =>
+      [v.name || '', v.lang || '', v.voiceURI || ''].join('||') === currentKey
+    ) || us[0];
   }
 
-  if (!selected || !/^en-US$/i.test(selected.lang || '')) {
+  if (!state.voice.selectedVoice || !isAmericanEnglishVoice(state.voice.selectedVoice)) {
+    await new Promise(resolve => {
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        clearInterval(interval);
+        clearTimeout(timeout);
+        try { state.voice.synth.removeEventListener('voiceschanged', onChanged); } catch (e) {}
+        resolve();
+      };
+      const find = () => {
+        const current = (state.voice.synth.getVoices() || []).filter(isAmericanEnglishVoice);
+        if (current.length) {
+          state.voice.selectedVoice = current[0];
+          loadVoiceSelectionAfterSpeech();
+          finish();
+        }
+      };
+      const onChanged = find;
+      const interval = setInterval(find, 250);
+      const timeout = setTimeout(finish, 5000);
+      try { state.voice.synth.addEventListener('voiceschanged', onChanged); } catch (e) {}
+      find();
+    });
+  }
+
+  const selected = state.voice.selectedVoice;
+  if (!selected || !isAmericanEnglishVoice(selected)) {
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = 'Chưa có giọng English (United States) trên thiết bị';
+    DOM.ttsStatus.textContent = 'Chưa thấy voice English (United States). Hãy kiểm tra Samsung TTS đã tải voice chưa.';
     return;
   }
 
@@ -404,24 +450,44 @@ async function speak(text) {
 
   utterance.onstart = () => {
     DOM.btnTtsPlayText.textContent = 'Đang phát âm...';
-    DOM.ttsStatus.textContent = `🔊 ${selected.name} (en-US)`;
+    DOM.ttsStatus.textContent = `🔊 ${selected.name || 'Samsung English US'} (${selected.lang || 'en-US'})`;
   };
   utterance.onend = () => {
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = `American English • ${selected.name}`;
+    DOM.ttsStatus.textContent = `American English • ${selected.name || 'Samsung TTS'}`;
   };
-  utterance.onerror = (event) => {
+  utterance.onerror = event => {
     console.warn('Speech synthesis error:', event);
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = 'Không phát được giọng en-US — hãy bấm Nghe lại';
+    DOM.ttsStatus.textContent = 'Không phát được voice Samsung English (US) — hãy thử Nghe lại.';
   };
 
   try { state.voice.synth.speak(utterance); }
   catch (err) {
     console.warn('Speech synthesis start error:', err);
     DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
-    DOM.ttsStatus.textContent = 'Không phát được giọng en-US';
+    DOM.ttsStatus.textContent = 'Không phát được voice Samsung English (US)';
   }
+}
+
+// Helper used by speak() after Android/Chrome exposes a newly installed voice.
+function loadVoiceSelectionAfterSpeech() {
+  if (!state.voice.synth || !DOM.ttsVoiceSelect) return;
+  const us = (state.voice.synth.getVoices() || []).filter(isAmericanEnglishVoice);
+  if (!us.length) return;
+  state.voice.voices = us;
+  state.voice.selectedVoice = state.voice.selectedVoice && isAmericanEnglishVoice(state.voice.selectedVoice)
+    ? state.voice.selectedVoice
+    : us[0];
+  DOM.ttsVoiceSelect.innerHTML = '';
+  us.forEach((voice, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = `${voice.name || `English (US) Voice ${i + 1}`} (${voice.lang})`;
+    DOM.ttsVoiceSelect.appendChild(opt);
+  });
+  const idx = us.findIndex(v => v.voiceURI === state.voice.selectedVoice.voiceURI);
+  DOM.ttsVoiceSelect.value = String(idx >= 0 ? idx : 0);
 }
 
 function stopSpeech() {
@@ -432,9 +498,9 @@ function stopSpeech() {
   if (DOM.btnTtsPlayText) DOM.btnTtsPlayText.textContent = 'Nghe đề bài';
   if (DOM.ttsStatus) {
     const voice = state.voice.selectedVoice;
-    DOM.ttsStatus.textContent = voice && /^en-US$/i.test(voice.lang || '')
-      ? `American English • ${voice.name}`
-      : 'Đang chờ giọng English (United States)...';
+    DOM.ttsStatus.textContent = voice && isAmericanEnglishVoice(voice)
+      ? `American English • ${voice.name || 'Samsung TTS'}`
+      : 'Đang tìm giọng English (United States)...';
   }
 }
 
